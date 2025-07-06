@@ -116,7 +116,7 @@ Context: "{context}"
 Question: "{user_query}"
 
 Answer: Please provide a comprehensive answer based on the legal context provided above strictly. Include relevant legal provisions, 
-procedures, and practical guidance while emphasizing the importance of professional legal consultation."""
+procedures, and practical guidance while emphasizing the importance of professional legal consultation. (keep it concise and guide user step by step, and if its citical issue help him mentaly as well like condemn)"""
 
         # Generate response using gemini_model (fixed variable name conflict)
         response = gemini_model.generate_content(rag_prompt)
