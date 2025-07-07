@@ -39,7 +39,7 @@ legal_documents = []
 embeddings_model = None
 
 # Configure Gemini API
-genai.configure(api_key="AIzaSyApfAsLZ5_G41N2gg_W3Uar5tlrPOsRjoM")
+genai.configure(api_key="your-api-key-here")
 gemini_model = genai.GenerativeModel(model_name="models/gemma-3n-e4b-it")
 
 def load_faiss_index(index_path: str):
@@ -79,9 +79,10 @@ def get_embeddings(text: str) -> np.ndarray:
         logger.error(f"Error generating embeddings: {e}")
         raise
 
-def search_similar_documents(query: str, k: int = 5) -> List[str]:
+def search_similar_documents(user_query: str, k: int = 5) -> List[str]:
     """Search for similar documents using FAISS"""
     try:
+        query = convert_to_legal(user_query)
         # Get query embeddings
         query_embedding = get_embeddings(query)
         query_vector = np.array([query_embedding])
@@ -100,12 +101,31 @@ def search_similar_documents(query: str, k: int = 5) -> List[str]:
         logger.error(f"Error searching documents: {e}")
         return []
 
+def convert_to_legal(civil_text: str) -> str:
+    promptToGemma = f"""
+        Input:
+        {civil_text}
+
+        Task:
+        – Convert the above civilian-language sentence into formal legal English used in Pakistan.
+        – Rewrite it as a legally structured question.
+        – Use legal terminology and phrasing found in Pakistani statutes, penal codes, and official legal discourse.
+        – Avoid gendered or personal pronouns (e.g., “he,” “she”); prefer legal terms like “the individual,” “the affected party,” etc.
+        – Return only the converted sentence. Do not include explanations, headers, or formatting—only the rewritten sentence.
+        – Length should be up to 50 words and include terminology likely to match legal vector database embeddings.
+        and in the converted prompt it should also ask guidance for further legal proceedure and steps victim should take (like filling fir, registering complain and etc).  
+        """
+    resp = gemini_model.generate_content(promptToGemma)
+    return resp.text
+
+
 def generate_response(user_query: str, retrieved_chunks: List[str]) -> str:
     """Generate response using Gemini model with RAG"""
     try:
         # Combine retrieved chunks
         context = "\n".join(retrieved_chunks)
         
+        print(user_query)
         # Create RAG prompt
         rag_prompt = f"""You are PakLegalAdvisor, an AI assistant specialized in Pakistani law and legal procedures. 
         Provide accurate, helpful legal guidance based on the provided context. Always mention that this is general guidance 
@@ -115,8 +135,8 @@ Context: "{context}"
 
 Question: "{user_query}"
 
-Answer: Please provide a comprehensive answer based on the legal context provided above strictly. Include relevant legal provisions, 
-procedures, and practical guidance while emphasizing the importance of professional legal consultation. (keep it concise and guide user step by step, and if its citical issue help him mentaly as well like condemn)"""
+Answer: Please provide a comprehensive answer based on the legal context provided above strictly (but not mention that i am answering based on context). Include relevant legal provisions, 
+procedures, and practical guidance while emphasizing the importance of professional legal consultation. use simple language so civvillian can understand. (keep it some concise and guide user step by step, and if its citical issue help him mentaly as well like we do condemn)"""
 
         # Generate response using gemini_model (fixed variable name conflict)
         response = gemini_model.generate_content(rag_prompt)
